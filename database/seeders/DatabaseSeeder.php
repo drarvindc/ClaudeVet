@@ -161,7 +161,7 @@ class DatabaseSeeder extends Seeder
                 $species = $isDog ? $dogSpecies : $catSpecies;
                 $breeds = $species->breeds;
                 
-                $uid = \App\Services\UidGenerator::generate();
+                $uid = $this->generateUid();
                 
                 $pet = Pet::create([
                     'unique_id' => $uid,
@@ -262,5 +262,14 @@ class DatabaseSeeder extends Seeder
         ];
         
         return $prescriptions[array_rand($prescriptions)];
+    }
+    
+    private function generateUid(): string
+    {
+        // Generate UID in YY#### format (6 characters total)
+        $year = date('y'); // Last 2 digits of current year
+        $sequence = rand(1, 9999); // Random 4-digit sequence
+        
+        return $year . str_pad($sequence, 4, '0', STR_PAD_LEFT);
     }
 }

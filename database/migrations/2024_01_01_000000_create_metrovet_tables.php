@@ -62,7 +62,7 @@ return new class extends Migration
         // Create pets table
         Schema::create('pets', function (Blueprint $table) {
             $table->id();
-            $table->string('unique_id', 6)->unique(); // YY#### format
+            $table->string('unique_id', 10)->unique(); // YY#### format (allow up to 10 chars)
             $table->foreignId('owner_id')->constrained()->onDelete('cascade');
             $table->string('name');
             $table->foreignId('species_id')->constrained();

@@ -59,16 +59,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Modify users table (add vet-specific fields to existing table)
-        Schema::table('users', function (Blueprint $table) {
-            $table->enum('role', ['admin', 'doctor', 'staff'])->default('staff');
-            $table->string('degree')->nullable();
-            $table->string('registration_no')->nullable();
-            $table->string('phone')->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->softDeletes();
-        });
-
         // Create pets table
         Schema::create('pets', function (Blueprint $table) {
             $table->id();
@@ -172,11 +162,5 @@ return new class extends Migration
         Schema::dropIfExists('year_counters');
         Schema::dropIfExists('visit_seq_counters');
         Schema::dropIfExists('api_tokens');
-        
-        // Remove added columns from users table
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['role', 'degree', 'registration_no', 'phone', 'is_active']);
-            $table->dropSoftDeletes();
-        });
     }
 };

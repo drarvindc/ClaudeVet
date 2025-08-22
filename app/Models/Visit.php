@@ -13,37 +13,38 @@ class Visit extends Model
     use HasFactory;
 
     protected $fillable = [
+        'uuid',
         'pet_id',
         'visit_date',
-        'visit_seq',
+        'visit_number',
+        'sequence',
+        'chief_complaint',
+        'examination_notes',
+        'diagnosis',
+        'treatment_plan',
+        'prescription',
+        'follow_up_date',
+        'visit_type',
         'status',
-        'source',
-        'reason',
-        'remarks',
-        'next_visit',
-        'doctor_id',
-        'created_by',
+        'total_amount',
+        'paid_amount',
+        'balance_amount',
+        'payment_status',
     ];
 
     protected $casts = [
         'visit_date' => 'date',
-        'next_visit' => 'date',
-        'visit_seq' => 'integer',
+        'follow_up_date' => 'date',
+        'visit_number' => 'integer',
+        'sequence' => 'integer',
+        'total_amount' => 'decimal:2',
+        'paid_amount' => 'decimal:2',
+        'balance_amount' => 'decimal:2',
     ];
 
     public function pet(): BelongsTo
     {
         return $this->belongsTo(Pet::class);
-    }
-
-    public function doctor(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'doctor_id');
-    }
-
-    public function createdBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function documents(): HasMany
@@ -53,7 +54,7 @@ class Visit extends Model
 
     public function getFormattedVisitNumberAttribute(): string
     {
-        return 'V' . str_pad($this->visit_seq, 4, '0', STR_PAD_LEFT);
+        return 'V' . str_pad($this->visit_number, 4, '0', STR_PAD_LEFT);
     }
 
     public function isOpen(): bool
@@ -63,7 +64,7 @@ class Visit extends Model
 
     public function isClosed(): bool
     {
-        return $this->status === 'closed';
+        return $this->status === 'completed';
     }
 }
 

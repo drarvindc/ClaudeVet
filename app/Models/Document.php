@@ -12,60 +12,35 @@ class Document extends Model
     use HasFactory;
 
     protected $fillable = [
-        'patient_unique_id',
-        'pet_id',
         'visit_id',
+        'pet_id',
         'type',
-        'subtype',
-        'path',
         'filename',
-        'original_filename',
-        'source',
-        'ref_id',
-        'seq',
+        'filesize',
         'mime',
-        'size_bytes',
-        'captured_at',
+        'note',
         'checksum_sha1',
-        'created_by',
     ];
 
     protected $casts = [
-        'captured_at' => 'datetime',
-        'size_bytes' => 'integer',
-        'seq' => 'integer',
+        'filesize' => 'integer',
     ];
-
-    public function pet(): BelongsTo
-    {
-        return $this->belongsTo(Pet::class);
-    }
 
     public function visit(): BelongsTo
     {
         return $this->belongsTo(Visit::class);
     }
 
-    public function createdBy(): BelongsTo
+    public function pet(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    public function getFullPathAttribute(): string
-    {
-        return storage_path('app/' . $this->path);
-    }
-
-    public function getUrlAttribute(): string
-    {
-        return asset('storage/' . $this->path);
+        return $this->belongsTo(Pet::class);
     }
 
     public function getFormattedSizeAttribute(): string
     {
-        if (!$this->size_bytes) return 'Unknown';
+        if (!$this->filesize) return 'Unknown';
         
-        $bytes = $this->size_bytes;
+        $bytes = $this->filesize;
         $units = ['B', 'KB', 'MB', 'GB'];
         
         for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {

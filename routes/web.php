@@ -6,28 +6,18 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
 */
 
 Route::get('/', function () {
     return redirect('/admin');
 });
 
-// Test route to check if Laravel is working
+// Test route
 Route::get('/test', function () {
-    return 'Laravel is working!';
+    return 'Laravel is working! <a href="/admin">Go to Admin</a>';
 });
 
-// Patient intake routes (for your vet system)
-Route::get('/patient/intake', function () {
-    return view('patient.intake');
-})->name('patient.intake');
-
-// Basic login route for Filament (if needed)
+// Fallback login route for Laravel (required for some middleware)
 Route::get('/login', function () {
     return redirect('/admin/login');
 })->name('login');

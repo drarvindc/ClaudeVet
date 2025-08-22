@@ -46,14 +46,14 @@ class OwnerMobile extends Model
         // Remove all non-digits
         $mobile = preg_replace('/\D/', '', $mobile);
         
-        // Add +91 if it's a 10-digit Indian number starting with 6, 7, 8, or 9
+        // For Indian mobile numbers, just return the 10-digit number
         if (strlen($mobile) === 10 && in_array(substr($mobile, 0, 1), ['6', '7', '8', '9'])) {
-            return '+91' . $mobile;
+            return $mobile;
         }
         
-        // Add + if it starts with country code
-        if (strlen($mobile) > 10 && !str_starts_with($mobile, '+')) {
-            return '+' . $mobile;
+        // If it's longer than 10 digits, take the last 10 digits (removes country codes)
+        if (strlen($mobile) > 10) {
+            return substr($mobile, -10);
         }
         
         return $mobile;

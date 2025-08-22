@@ -64,13 +64,25 @@ class PatientController extends Controller
 
     private function searchByMobile(string $mobile)
     {
-        // Normalize mobile number
-        $normalizedMobile = OwnerMobile::normalizeMobile($mobile);
+        // Clean the input mobile - get just the digits
+        $cleanMobile = preg_replace('/\D/', '', $mobile);
         
-        // Find owner by mobile
-        $owner = Owner::whereHas('mobiles', function ($query) use ($normalizedMobile) {
-            $query->where('mobile_e164', $normalizedMobile);
+        // For Indian numbers, get last 10 digits (removes country codes if present)
+        if (strlen($cleanMobile) > 10) {
+            $cleanMobile = substr($cleanMobile, -10);
+        }
+        
+        // Search in the mobile field (original format in your database)
+        $owner = Owner::whereHas('mobiles', function ($query) use ($cleanMobile) {
+            $query->where('mobile', $cleanMobile);
         })->with(['mobiles', 'pets.species', 'pets.breed'])->first();
+        
+        // If not found, try partial search on mobile_e164 (your database has full numbers there)
+        if (!$owner) {
+            $owner = Owner::whereHas('mobiles', function ($query) use ($cleanMobile) {
+                $query->where('mobile_e164', 'LIKE', '%' . $cleanMobile . '%');
+            })->with(['mobiles', 'pets.species', 'pets.breed'])->first();
+        }
 
         if (!$owner) {
             return view('patient.not-found', [
@@ -108,11 +120,11 @@ class PatientController extends Controller
                 'created_via' => 'provisional',
             ]);
 
-            // Add mobile number
+            // Add mobile number (store as 10-digit number)
             OwnerMobile::create([
                 'owner_id' => $owner->id,
-                'mobile' => $request->mobile,
-                'mobile_e164' => $mobile,
+                'mobile' => $mobile,
+                'mobile_e164' => $mobile, // Store same format since no +91
                 'is_primary' => true,
             ]);
 

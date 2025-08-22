@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -14,9 +13,6 @@ use Illuminate\Support\Facades\Auth;
 |
 */
 
-// Basic auth routes that Filament expects
-Auth::routes();
-
 Route::get('/', function () {
     return redirect('/admin');
 });
@@ -25,3 +21,13 @@ Route::get('/', function () {
 Route::get('/test', function () {
     return 'Laravel is working!';
 });
+
+// Patient intake routes (for your vet system)
+Route::get('/patient/intake', function () {
+    return view('patient.intake');
+})->name('patient.intake');
+
+// Basic login route for Filament (if needed)
+Route::get('/login', function () {
+    return redirect('/admin/login');
+})->name('login');

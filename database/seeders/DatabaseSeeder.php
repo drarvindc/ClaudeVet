@@ -12,6 +12,7 @@ use App\Models\Breed;
 use App\Models\Visit;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -156,7 +157,7 @@ class DatabaseSeeder extends Seeder
             // Create 1-2 pets per owner
             $numPets = rand(1, 2);
             for ($p = 0; $p < $numPets; $p++) {
-                $isD = rand(0, 1); // Dog or cat
+                $isDog = rand(0, 1); // Dog or cat
                 $species = $isDog ? $dogSpecies : $catSpecies;
                 $breeds = $species->breeds;
                 
@@ -185,7 +186,81 @@ class DatabaseSeeder extends Seeder
                     $visitDate = now()->subDays(rand(0, 90));
                     
                     Visit::create([
-                        'uuid' => \Str::uuid(),
+                        'uuid' => Str::uuid(),
                         'pet_id' => $pet->id,
                         'visit_date' => $visitDate,
-                        'visit
+                        'visit_number' => $v + 1,
+                        'chief_complaint' => $this->getRandomComplaint(),
+                        'examination_notes' => 'Physical examination completed.',
+                        'diagnosis' => $this->getRandomDiagnosis(),
+                        'treatment_plan' => 'Treatment plan as per diagnosis.',
+                        'prescription' => $this->getRandomPrescription(),
+                        'follow_up_date' => $visitDate->addDays(rand(7, 30)),
+                        'visit_type' => ['consultation', 'vaccination', 'surgery', 'checkup'][rand(0, 3)],
+                        'status' => 'completed',
+                        'total_amount' => rand(500, 5000),
+                        'paid_amount' => rand(500, 5000),
+                        'balance_amount' => 0,
+                        'payment_status' => 'paid',
+                        'created_at' => $visitDate,
+                        'updated_at' => $visitDate,
+                    ]);
+                }
+            }
+        }
+    }
+    
+    private function getRandomComplaint(): string
+    {
+        $complaints = [
+            'Loss of appetite and lethargy',
+            'Vomiting and diarrhea',
+            'Skin allergies and itching',
+            'Ear infection and discharge',
+            'Limping and joint pain',
+            'Routine vaccination',
+            'General health checkup',
+            'Dental cleaning required',
+            'Eye discharge and redness',
+            'Respiratory issues and coughing'
+        ];
+        
+        return $complaints[array_rand($complaints)];
+    }
+    
+    private function getRandomDiagnosis(): string
+    {
+        $diagnoses = [
+            'Gastroenteritis',
+            'Allergic dermatitis',
+            'Otitis externa',
+            'Arthritis',
+            'Healthy - routine vaccination',
+            'Conjunctivitis',
+            'Upper respiratory infection',
+            'Dental tartar buildup',
+            'Parasitic infection',
+            'Nutritional deficiency'
+        ];
+        
+        return $diagnoses[array_rand($diagnoses)];
+    }
+    
+    private function getRandomPrescription(): string
+    {
+        $prescriptions = [
+            'Antibiotic course for 7 days, probiotics',
+            'Antihistamine tablets, medicated shampoo',
+            'Ear cleaning solution, topical antibiotics',
+            'Pain relief medication, joint supplements',
+            'Vaccination administered successfully',
+            'Eye drops, antibiotic ointment',
+            'Cough suppressant, rest',
+            'Dental scaling recommended',
+            'Deworming medication',
+            'Nutritional supplements, diet change'
+        ];
+        
+        return $prescriptions[array_rand($prescriptions)];
+    }
+}

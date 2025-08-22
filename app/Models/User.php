@@ -41,16 +41,6 @@ class User extends Authenticatable implements FilamentUser
         return $this->is_active && in_array($this->role, ['admin', 'doctor', 'staff']);
     }
 
-    public function visits()
-    {
-        return $this->hasMany(Visit::class, 'created_by');
-    }
-
-    public function doctorVisits()
-    {
-        return $this->hasMany(Visit::class, 'doctor_id');
-    }
-
     public function isAdmin(): bool
     {
         return $this->role === 'admin';

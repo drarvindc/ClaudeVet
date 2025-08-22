@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -13,9 +14,14 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// Basic auth routes that Filament expects
+Auth::routes();
+
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('/admin');
 });
 
-// Redirect root to admin (since that's what you want)
-Route::redirect('/', '/admin');
+// Test route to check if Laravel is working
+Route::get('/test', function () {
+    return 'Laravel is working!';
+});

@@ -4,12 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Owner extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $fillable = [
         'name',
@@ -20,105 +20,54 @@ class Owner extends Model
         'pincode',
         'status',
         'created_via',
-        'is_sample_data'
     ];
 
-    protected $casts = [
-        'is_sample_data' => 'boolean',
-    ];
-
-    /**
-     * Get the owner's mobile numbers
-     */
-    public function mobiles(): HasMany
-    {
-        return $this->hasMany(OwnerMobile::class);
-    }
-
-    /**
-     * Get the owner's primary mobile
-     */
-    public function primaryMobile()
-    {
-        return $this->hasOne(OwnerMobile::class)->where('is_primary', true);
-    }
-
-    /**
-     * Get the owner's pets
-     */
     public function pets(): HasMany
     {
         return $this->hasMany(Pet::class);
     }
 
-    /**
-     * Get all visits for all pets
-     */
-    public function visits()
+    public function mobiles(): HasMany
     {
-        return $this->hasManyThrough(Visit::class, Pet::class);
+        return $this->hasMany(OwnerMobile::class);
     }
 
-    /**
-     * Scope for provisional records
-     */
-    public function scopeProvisional($query)
+    public function primaryMobile(): HasMany
     {
-        return $query->where('status', 'provisional');
+        return $this->hasMany(OwnerMobile::class)->where('is_primary', true);
     }
 
-    /**
-     * Scope for active records
-     */
-    public function scopeActive($query)
+    // Helper methods
+    public function getFullNameAttribute(): string
     {
-        return $query->where('status', 'active');
+        return $this->name ?: 'Unknown Owner';
     }
 
-    /**
-     * Scope for sample data
-     */
-    public function scopeSampleData($query)
+    public function getPrimaryMobileNumberAttribute(): ?string
     {
-        return $query->where('is_sample_data', true);
+        return $this->primaryMobile()->first()?->mobile_e164;
     }
 
-    /**
-     * Get full address
-     */
-    public function getFullAddressAttribute()
+    public function getAllMobileNumbersAttribute(): array
     {
-        $parts = array_filter([
-            $this->address,
-            $this->locality,
-            $this->city,
-            $this->pincode
-        ]);
-        
-        return implode(', ', $parts);
+        return $this->mobiles()->pluck('mobile_e164')->toArray();
     }
 
-    /**
-     * Get display mobile (primary or first available)
-     */
-    public function getDisplayMobileAttribute()
+    public function isProvisional(): bool
     {
-        $primary = $this->mobiles->where('is_primary', true)->first();
-        if ($primary) {
-            return $primary->mobile;
-        }
-        
-        return $this->mobiles->first()?->mobile;
+        return $this->created_via === 'provisional';
     }
 
-    /**
-     * Check if owner has complete information
-     */
-    public function isComplete(): bool
+    public function isActive(): bool
     {
-        return $this->status === 'active' 
-            && !empty($this->name) 
-            && $this->name !== 'Provisional Owner'
-            && $this->mobiles->isNotEmpty();
+        return $this->status === 'active';
+    }
+
+    // Static methods for search
+    public static function findByMobile(string $mobile): ?self
+    {
+        return self::whereHas('mobiles', function ($query) use ($mobile) {
+            $query->where('mobile_e164', 'LIKE', '%' . $mobile);
+        })->first();
     }
 }

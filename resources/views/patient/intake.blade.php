@@ -1,339 +1,112 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Patient Intake - MetroVet Clinic</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-    </style>
-</head>
-<body class="bg-gray-50">
-    <div class="min-h-screen" x-data="patientIntake()">
-        <!-- Header -->
-        <header class="bg-white shadow-sm border-b">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center h-16">
-                    <div class="flex items-center">
-                        <h1 class="text-2xl font-bold text-gray-900">MetroVet Clinic</h1>
-                        <span class="ml-3 text-sm text-gray-500">Patient Intake System</span>
-                    </div>
-                    <div class="text-sm text-gray-600">
-                        <span x-text="currentTime"></span>
-                    </div>
-                </div>
-            </div>
-        </header>
+@extends('layouts.app')
 
-        <!-- Main Content -->
-        <main class="max-w-4xl mx-auto py-12 px-4">
-            <!-- Search Section -->
-            <div class="bg-white rounded-lg shadow-md p-8 mb-6">
-                <h2 class="text-xl font-semibold mb-6 text-gray-800">Find Patient</h2>
-                
-                <div class="space-y-4">
-                    <div class="relative">
-                        <input
-                            type="text"
-                            x-model="searchInput"
-                            @keyup.enter="searchPatient"
-                            @input="clearError"
-                            class="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
-                            placeholder="Enter 10-digit Mobile Number or 6-digit UID"
-                            autofocus
-                            maxlength="10"
-                            pattern="[0-9]*"
-                        >
-                        <div class="absolute right-3 top-3">
-                            <button 
-                                @click="searchPatient"
-                                class="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 transition"
-                            >
-                                Search
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div x-show="error" class="bg-red-50 text-red-600 p-3 rounded-md" x-text="error"></div>
-                    
-                    <div class="flex gap-2 text-sm text-gray-600">
-                        <button @click="setExample('9867999773')" class="hover:text-blue-600">
-                            Example Mobile: 9867999773
-                        </button>
-                        <span>|</span>
-                        <button @click="setExample('250001')" class="hover:text-blue-600">
-                            Example UID: 250001
-                        </button>
+@section('title', 'Patient Intake')
+
+@section('content')
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+        <div class="text-center mb-8">
+            <div class="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900">Patient Search</h1>
+            <p class="text-gray-600 mt-2">Enter mobile number or scan/type Unique ID</p>
+        </div>
+
+        @if(session('success'))
+            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {{ session('error') }}
+            </div>
+        @endif
+
+        <form action="{{ route('patient.search') }}" method="POST" class="space-y-6">
+            @csrf
+            
+            <div>
+                <label for="search" class="block text-sm font-medium text-gray-700 mb-2">
+                    Mobile Number or Unique ID
+                </label>
+                <input 
+                    type="text" 
+                    id="search" 
+                    name="search" 
+                    placeholder="9876543210 or 250001"
+                    autofocus
+                    autocomplete="off"
+                    class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value="{{ old('search') }}"
+                    required
+                >
+                <div class="mt-2 text-sm text-gray-500">
+                    <div class="flex items-center space-x-4">
+                        <span>📱 10-digit mobile</span>
+                        <span>🏷️ 6-digit UID</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Results Section -->
-            <div x-show="showResults" class="bg-white rounded-lg shadow-md p-8">
-                <!-- Patient Found -->
-                <div x-show="patientFound">
-                    <h3 class="text-lg font-semibold mb-4 text-green-600">✓ Patient Found</h3>
-                    
-                    <div class="grid grid-cols-2 gap-4 mb-6">
-                        <div>
-                            <label class="text-sm text-gray-600">Owner Name</label>
-                            <p class="font-medium" x-text="owner?.name"></p>
-                        </div>
-                        <div>
-                            <label class="text-sm text-gray-600">Mobile</label>
-                            <p class="font-medium" x-text="owner?.display_mobile"></p>
-                        </div>
-                    </div>
+            <button 
+                type="submit" 
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center space-x-2"
+            >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <span>Search Patient</span>
+            </button>
+        </form>
 
-                    <!-- Single Pet -->
-                    <div x-show="pets.length === 1" class="border-t pt-4">
-                        <h4 class="font-medium mb-3">Pet Details</h4>
-                        <div class="grid grid-cols-3 gap-4">
-                            <div>
-                                <label class="text-sm text-gray-600">Name</label>
-                                <p class="font-medium" x-text="pets[0]?.name"></p>
-                            </div>
-                            <div>
-                                <label class="text-sm text-gray-600">UID</label>
-                                <p class="font-medium" x-text="pets[0]?.unique_id"></p>
-                            </div>
-                            <div>
-                                <label class="text-sm text-gray-600">Species</label>
-                                <p class="font-medium" x-text="pets[0]?.species?.common_name"></p>
-                            </div>
-                        </div>
-                        
-                        <div class="mt-6 flex gap-3">
-                            <button 
-                                @click="printLetterhead(pets[0].id)"
-                                class="bg-green-500 text-white px-6 py-2 rounded-md hover:bg-green-600"
-                            >
-                                Print Letterhead
-                            </button>
-                            <button 
-                                @click="openVisit(pets[0].id)"
-                                class="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
-                            >
-                                Open Visit
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Multiple Pets -->
-                    <div x-show="pets.length > 1" class="border-t pt-4">
-                        <h4 class="font-medium mb-3">Select Pet</h4>
-                        <div class="space-y-3">
-                            <template x-for="pet in pets" :key="pet.id">
-                                <div class="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer" @click="selectPet(pet)">
-                                    <div class="flex justify-between items-center">
-                                        <div>
-                                            <p class="font-medium" x-text="pet.name"></p>
-                                            <p class="text-sm text-gray-600">
-                                                <span x-text="pet.species?.common_name"></span> • 
-                                                UID: <span x-text="pet.unique_id"></span>
-                                            </p>
-                                        </div>
-                                        <button class="text-blue-600 hover:text-blue-800">
-                                            Select →
-                                        </button>
-                                    </div>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Not Found - Create Provisional -->
-                <div x-show="!patientFound && showProvisional">
-                    <h3 class="text-lg font-semibold mb-4 text-orange-600">Patient Not Found</h3>
-                    <p class="text-gray-600 mb-6">Create a provisional record to proceed with the visit.</p>
-                    
-                    <div class="space-y-4">
-                        <input
-                            type="text"
-                            x-model="provisional.owner_name"
-                            class="w-full px-4 py-2 border rounded-md"
-                            placeholder="Owner Name (Optional)"
-                        >
-                        <input
-                            type="text"
-                            x-model="provisional.pet_name"
-                            class="w-full px-4 py-2 border rounded-md"
-                            placeholder="Pet Name (Optional)"
-                        >
-                        <input
-                            type="text"
-                            x-model="provisional.mobile"
-                            class="w-full px-4 py-2 border rounded-md"
-                            placeholder="Mobile Number (Optional)"
-                            maxlength="10"
-                        >
-                        
-                        <div class="flex gap-3">
-                            <button 
-                                @click="createProvisional"
-                                class="bg-orange-500 text-white px-6 py-2 rounded-md hover:bg-orange-600"
-                            >
-                                Create Provisional & Print
-                            </button>
-                            <button 
-                                @click="resetSearch"
-                                class="bg-gray-300 text-gray-700 px-6 py-2 rounded-md hover:bg-gray-400"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
+        <div class="mt-8 pt-6 border-t border-gray-200">
+            <div class="text-center text-sm text-gray-500">
+                <p>For barcode/QR scanners: just scan directly into the input field</p>
             </div>
+        </div>
 
-            <!-- Loading -->
-            <div x-show="loading" class="bg-white rounded-lg shadow-md p-8 text-center">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                <p class="mt-2 text-gray-600">Searching...</p>
-            </div>
-        </main>
+        <div class="mt-6 text-center">
+            <a href="/admin" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                ← Back to Admin Panel
+            </a>
+        </div>
     </div>
+</div>
 
-    <script>
-        function patientIntake() {
-            return {
-                searchInput: '',
-                error: '',
-                loading: false,
-                showResults: false,
-                patientFound: false,
-                showProvisional: false,
-                owner: null,
-                pets: [],
-                currentTime: '',
-                provisional: {
-                    owner_name: '',
-                    pet_name: '',
-                    mobile: ''
-                },
-                
-                init() {
-                    this.updateTime();
-                    setInterval(() => this.updateTime(), 1000);
-                },
-                
-                updateTime() {
-                    const now = new Date();
-                    this.currentTime = now.toLocaleString('en-IN', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                },
-                
-                setExample(value) {
-                    this.searchInput = value;
-                    this.searchPatient();
-                },
-                
-                clearError() {
-                    this.error = '';
-                },
-                
-                resetSearch() {
-                    this.searchInput = '';
-                    this.error = '';
-                    this.showResults = false;
-                    this.patientFound = false;
-                    this.showProvisional = false;
-                    this.owner = null;
-                    this.pets = [];
-                    this.provisional = { owner_name: '', pet_name: '', mobile: '' };
-                },
-                
-                async searchPatient() {
-                    if (!this.searchInput) {
-                        this.error = 'Please enter a mobile number or UID';
-                        return;
-                    }
-                    
-                    this.loading = true;
-                    this.error = '';
-                    
-                    try {
-                        const response = await fetch('/patient/search', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                            },
-                            body: JSON.stringify({ search: this.searchInput })
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if (data.success) {
-                            this.showResults = true;
-                            this.patientFound = true;
-                            this.owner = data.owner;
-                            this.pets = data.pets || (data.pet ? [data.pet] : []);
-                        } else {
-                            this.showResults = true;
-                            this.patientFound = false;
-                            this.showProvisional = true;
-                            if (data.mobile) {
-                                this.provisional.mobile = data.mobile;
-                            }
-                        }
-                    } catch (error) {
-                        this.error = 'Network error. Please try again.';
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                async createProvisional() {
-                    this.loading = true;
-                    
-                    try {
-                        const response = await fetch('/patient/provisional', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                            },
-                            body: JSON.stringify(this.provisional)
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if (data.success) {
-                            // Open letterhead in new window for printing
-                            window.open(`/patient/letterhead/${data.pet.id}`, '_blank');
-                            this.resetSearch();
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to create provisional record';
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                selectPet(pet) {
-                    this.printLetterhead(pet.id);
-                },
-                
-                printLetterhead(petId) {
-                    window.open(`/patient/letterhead/${petId}`, '_blank');
-                },
-                
-                openVisit(petId) {
-                    window.location.href = `/admin/resources/pets/${petId}`;
-                }
-            }
+<script>
+// Auto-focus and handle scanner input
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search');
+    
+    // Focus the input
+    searchInput.focus();
+    
+    // Handle barcode scanner input (typically ends with Enter)
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            // Small delay to ensure scanner has finished input
+            setTimeout(() => {
+                this.form.submit();
+            }, 100);
         }
-    </script>
-</body>
-</html>
+    });
+    
+    // Auto-submit for 6-digit UIDs after slight delay
+    searchInput.addEventListener('input', function() {
+        const value = this.value.replace(/\D/g, ''); // Remove non-digits
+        if (value.length === 6) {
+            setTimeout(() => {
+                if (this.value.replace(/\D/g, '').length === 6) {
+                    this.form.submit();
+                }
+            }, 500);
+        }
+    });
+});
+</script>
+@endsection

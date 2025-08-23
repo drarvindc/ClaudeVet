@@ -1,0 +1,36 @@
+R_DEF: Internal format may change without notice
+local
+color black
+color purple_200
+color purple_500
+color purple_700
+color status_background
+color teal_200
+color teal_700
+color white
+drawable edittext_background
+drawable info_background
+drawable type_badge
+id attachmentsRecyclerView
+id filenameText
+id forceNewVisitCheckBox
+id noteEditText
+id noteText
+id openVisitButton
+id ownerNameText
+id petInfoLayout
+id petNameText
+id scanButton
+id sizeText
+id statusTextView
+id typeSpinner
+id typeText
+id uidEditText
+id uploadButton
+layout activity_main
+layout dialog_upload
+layout item_attachment
+mipmap ic_launcher
+string app_name
+style AppTheme
+xml file_paths

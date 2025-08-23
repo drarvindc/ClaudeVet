@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginVertical="4dp"
+    app:cardElevation="2dp"
+    app:cardCornerRadius="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/typeText"
+            android:layout_width="60dp"
+            android:layout_height="wrap_content"
+            android:text="RX"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:background="@drawable/type_badge"
+            android:textColor="@android:color/white"
+            android:gravity="center"
+            android:padding="4dp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+
+            <TextView
+                android:id="@+id/filenameText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="230825-rx-251097-01.jpg"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:textColor="#212121" />
+
+            <TextView
+                android:id="@+id/sizeText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="155 KB"
+                android:textSize="12sp"
+                android:textColor="#757575"
+                android:layout_marginTop="2dp" />
+
+            <TextView
+                android:id="@+id/noteText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Test upload from API"
+                android:textSize="12sp"
+                android:textColor="#424242"
+                android:layout_marginTop="4dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

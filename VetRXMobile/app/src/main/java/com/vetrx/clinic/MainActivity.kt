@@ -114,24 +114,25 @@ class MainActivity : AppCompatActivity() {
         integrator.initiateScan()
     }
     
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        val result: IntentResult = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
-        if (result != null) {
-            if (result.contents == null) {
-                Toast.makeText(this, "Scan cancelled", Toast.LENGTH_SHORT).show()
-            } else {
-                val scannedUID = result.contents
-                if (isValidUID(scannedUID)) {
-                    uidEditText.setText(scannedUID)
-                    updateStatus("Scanned UID: $scannedUID")
-                } else {
-                    Toast.makeText(this, "Invalid UID format. Expected 6 digits.", Toast.LENGTH_SHORT).show()
-                }
-            }
+   override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    val result: IntentResult? = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
+    if (result != null) {
+        if (result.contents == null) {
+            Toast.makeText(this, "Scan cancelled", Toast.LENGTH_SHORT).show()
         } else {
-            super.onActivityResult(requestCode, resultCode, data)
+            val scannedUID = result.contents
+            if (isValidUID(scannedUID)) {
+                uidEditText.setText(scannedUID)
+                updateStatus("Scanned UID: $scannedUID")
+            } else {
+                Toast.makeText(this, "Invalid UID format. Expected 6 digits.", Toast.LENGTH_SHORT).show()
+            }
         }
+    } else {
+        // Handle non-QR scanner results (like gallery selection)
+        super.onActivityResult(requestCode, resultCode, data)
     }
+}
     
     private fun isValidUID(uid: String): Boolean {
         return uid.matches(Regex("^\\d{6}$"))
@@ -253,49 +254,49 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
     
-    private fun uploadFile(imageUri: Uri, type: String, note: String, forceNewVisit: Boolean) {
-        val uid = uidEditText.text.toString().trim()
-        if (!isValidUID(uid)) {
-            Toast.makeText(this, "Invalid UID", Toast.LENGTH_SHORT).show()
-            return
-        }
-        
-        updateStatus("Uploading $type...")
-        
-        try {
-            val inputStream = contentResolver.openInputStream(imageUri)
-            val file = File(cacheDir, "upload_${System.currentTimeMillis()}.jpg")
-            file.outputStream().use { output ->
-                inputStream?.copyTo(output)
-            }
-            
-            ApiClient.uploadFile(
-                uid = uid,
-                type = type,
-                note = note,
-                forceNewVisit = forceNewVisit,
-                file = file
-            ) { success, response ->
-                runOnUiThread {
-                    if (success && response != null) {
-                        updateStatus("Upload successful: ${response.attachment.filename}")
-                        loadTodaysVisits(uid) // Refresh attachments list
-                        Toast.makeText(this, "File uploaded successfully", Toast.LENGTH_SHORT).show()
-                    } else {
-                        updateStatus("Upload failed")
-                        Toast.makeText(this, "Upload failed", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                
-                // Clean up temp file
-                file.delete()
-            }
-            
-        } catch (e: Exception) {
-            updateStatus("Upload error: ${e.message}")
-            Toast.makeText(this, "Upload error: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
+private fun uploadFile(imageUri: Uri, type: String, note: String, forceNewVisit: Boolean) {
+    val uid = uidEditText.text.toString().trim()
+    if (!isValidUID(uid)) {
+        Toast.makeText(this, "Invalid UID", Toast.LENGTH_SHORT).show()
+        return
     }
+    
+    updateStatus("Uploading $type...")
+    
+    try {
+        val inputStream = contentResolver.openInputStream(imageUri)
+        val file = File(cacheDir, "upload_${System.currentTimeMillis()}.jpg")
+        file.outputStream().use { output ->
+            inputStream?.copyTo(output)
+        }
+        
+        updateStatus("File created: ${file.length()} bytes")
+        
+        ApiClient.uploadFile(
+            uid = uid,
+            type = type,
+            note = note,
+            forceNewVisit = forceNewVisit,
+            file = file
+        ) { success, response ->
+            runOnUiThread {
+                if (success && response != null) {
+                    updateStatus("Upload successful: ${response.attachment.filename}")
+                    loadTodaysVisits(uid)
+                    Toast.makeText(this, "File uploaded successfully", Toast.LENGTH_SHORT).show()
+                } else {
+                    updateStatus("Upload failed - check network connection")
+                    Toast.makeText(this, "Upload failed - check logs", Toast.LENGTH_LONG).show()
+                }
+            }
+            file.delete()
+        }
+        
+    } catch (e: Exception) {
+        updateStatus("Upload error: ${e.message}")
+        Toast.makeText(this, "Upload error: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
     
     private fun handleApiError(code: Int) {
         val message = when (code) {

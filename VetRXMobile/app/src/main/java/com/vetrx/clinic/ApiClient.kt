@@ -55,7 +55,7 @@ object ApiClient {
             .addFormDataPart("uid", uid)
             .addFormDataPart("type", type)
             .addFormDataPart("note", note)
-            .addFormDataPart("forceNewVisit", forceNewVisit.toString())
+            .addFormDataPart("forceNewVisit", if (forceNewVisit) "1" else "0")
             .addFormDataPart(
                 "file", 
                 file.name,
@@ -73,20 +73,23 @@ object ApiClient {
                 callback(false, null)
             }
             
-            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                try {
-                    if (response.isSuccessful) {
-                        val responseBody = response.body?.string()
-                        val uploadResponse = com.google.gson.Gson()
-                            .fromJson(responseBody, UploadResponse::class.java)
-                        callback(true, uploadResponse)
-                    } else {
-                        callback(false, null)
-                    }
-                } catch (e: Exception) {
-                    callback(false, null)
-                }
-            }
+override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+    try {
+        val responseBody = response.body?.string()
+        if (response.isSuccessful) {
+            val uploadResponse = com.google.gson.Gson()
+                .fromJson(responseBody, UploadResponse::class.java)
+            callback(true, uploadResponse)
+        } else {
+            // Log the error response
+            android.util.Log.e("ApiClient", "Upload failed: ${response.code} - $responseBody")
+            callback(false, null)
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("ApiClient", "Parse error: ${e.message}")
+        callback(false, null)
+    }
+}
         })
     }
 }

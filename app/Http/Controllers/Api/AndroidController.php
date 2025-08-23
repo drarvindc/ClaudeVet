@@ -247,75 +247,78 @@ class AndroidController extends Controller
         }
     }
 
-    /**
-     * Get today's visit with attachments
-     */
-    public function getTodayVisit(Request $request): JsonResponse
-    {
-        $request->validate([
-            'uid' => 'required|string|size:6'
-        ]);
+/**
+ * Get today's visit with attachments
+ */
+public function getTodayVisit(Request $request): JsonResponse
+{
+    $request->validate([
+        'uid' => 'required|string|size:6'
+    ]);
 
-        try {
-            $uid = $request->uid;
-            $pet = Pet::where('unique_id', $uid)->first();
-            
-            if (!$pet) {
-                return response()->json([
-                    'ok' => false,
-                    'error' => 'uid_not_found'
-                ], 404);
-            }
-
-            $today = now()->format('Y-m-d');
-            $visits = Visit::where('pet_id', $pet->id)
-                ->where('visit_date', $today)
-                ->with('documents')
-                ->orderBy('sequence')
-                ->get();
-
-            if ($visits->isEmpty()) {
-                return response()->json([
-                    'ok' => false,
-                    'error' => 'no_visit_today'
-                ], 404);
-            }
-
-            $visitData = [];
-            foreach ($visits as $visit) {
-                $attachments = $visit->documents->map(function ($doc) use ($uid) {
-                    $year = $visit->visit_date->format('Y');
-                    return [
-                        'id' => $doc->id,
-                        'type' => $doc->type,
-                        'filename' => $doc->filename,
-                        'url' => "/storage/patients/{$year}/{$uid}/{$doc->filename}",
-                        'size' => $doc->filesize,
-                        'note' => $doc->note
-                    ];
-                });
-
-                $visitData[] = [
-                    'id' => $visit->id,
-                    'sequence' => $visit->sequence,
-                    'date' => $visit->visit_date->format('Y-m-d'),
-                    'status' => $visit->status,
-                    'attachments' => $attachments
-                ];
-            }
-
-            return response()->json([
-                'ok' => true,
-                'visits' => $visitData
-            ]);
-
-        } catch (\Exception $e) {
+    try {
+        $uid = $request->uid;
+        $pet = Pet::where('unique_id', $uid)->first();
+        
+        if (!$pet) {
             return response()->json([
                 'ok' => false,
-                'error' => 'server_error'
-            ], 500);
+                'error' => 'uid_not_found'
+            ], 404);
         }
+
+        $today = now()->format('Y-m-d');
+        $visits = Visit::where('pet_id', $pet->id)
+            ->where('visit_date', $today)
+            ->with('documents')
+            ->orderBy('sequence')
+            ->get();
+
+        if ($visits->isEmpty()) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'no_visit_today'
+            ], 404);
+        }
+
+        $visitData = [];
+        foreach ($visits as $visit) {
+            // Fix: Use $visit directly instead of in closure
+            $year = $visit->visit_date->format('Y');
+            
+            $attachments = $visit->documents->map(function ($doc) use ($uid, $year) {
+                return [
+                    'id' => $doc->id,
+                    'type' => $doc->type,
+                    'filename' => $doc->filename,
+                    'url' => "/storage/patients/{$year}/{$uid}/{$doc->filename}",
+                    'size' => $doc->filesize,
+                    'note' => $doc->note
+                ];
+            });
+
+            $visitData[] = [
+                'id' => $visit->id,
+                'sequence' => $visit->sequence,
+                'date' => $visit->visit_date->format('Y-m-d'),
+                'status' => $visit->status,
+                'attachments' => $attachments
+            ];
+        }
+
+        return response()->json([
+            'ok' => true,
+            'visits' => $visitData
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'ok' => false,
+            'error' => 'server_error',
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Get next visit sequence number for a pet

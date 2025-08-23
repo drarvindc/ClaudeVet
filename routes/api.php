@@ -25,3 +25,10 @@ Route::prefix('android')->group(function () {
     Route::post('/visit/upload', [AndroidController::class, 'uploadFile']);
     Route::get('/visit/today', [AndroidController::class, 'getTodayVisit']);
 });
+
+// Alternative mobile upload endpoint to bypass LiteSpeed security blocks
+Route::prefix('mobile')->group(function () {
+    Route::post('/files', [AndroidController::class, 'uploadFile']);
+    Route::post('/session', [AndroidController::class, 'openVisit']);
+    Route::get('/today', [AndroidController::class, 'getTodayVisit']);
+});

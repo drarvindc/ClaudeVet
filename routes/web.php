@@ -66,7 +66,6 @@ Route::get('/media/qr-uid', function () {
     }
     
     try {
-        // Use SimpleSoftwareIO QR Code library that you have installed
         $qrCode = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')
             ->size(200)
             ->margin(2)

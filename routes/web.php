@@ -59,6 +59,7 @@ Route::middleware(['auth'])->group(function () {
 
 // Replace your existing /media/qr-uid route with this:
 
+// QR Code endpoint - FIXED
 Route::get('/media/qr-uid', function () {
     $uid = request('uid');
     if (!$uid) {
@@ -66,26 +67,34 @@ Route::get('/media/qr-uid', function () {
     }
     
     try {
-        $qrCode = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')
-            ->size(200)
-            ->margin(2)
-            ->generate($uid);
+        // Use your UidGenerator service
+        $qrCodeBase64 = \App\Services\UidGenerator::generateQrCode($uid);
+        $qrCodeBinary = base64_decode($qrCodeBase64);
         
-        return response($qrCode)->header('Content-Type', 'image/png');
+        return response($qrCodeBinary)
+            ->header('Content-Type', 'image/png')
+            ->header('Cache-Control', 'public, max-age=3600')
+            ->header('Content-Disposition', 'inline; filename="qr-' . $uid . '.png"');
         
     } catch (Exception $e) {
-        // Create simple placeholder on failure
+        // Emergency fallback - create simple placeholder
         $width = 200;
         $height = 200;
         $image = imagecreate($width, $height);
         
         $white = imagecolorallocate($image, 255, 255, 255);
         $black = imagecolorallocate($image, 0, 0, 0);
+        $gray = imagecolorallocate($image, 128, 128, 128);
         
         imagefill($image, 0, 0, $white);
-        imagestring($image, 5, 70, 80, 'QR', $black);
-        imagestring($image, 4, 60, 100, $uid, $black);
-        imagerectangle($image, 10, 10, 190, 190, $black);
+        
+        // Draw border
+        imagerectangle($image, 5, 5, $width-6, $height-6, $black);
+        imagerectangle($image, 10, 10, $width-11, $height-11, $gray);
+        
+        // Add text
+        imagestring($image, 5, 80, 85, 'QR', $black);
+        imagestring($image, 4, 70, 105, $uid, $black);
         
         ob_start();
         imagepng($image);
@@ -93,26 +102,75 @@ Route::get('/media/qr-uid', function () {
         ob_end_clean();
         imagedestroy($image);
         
-        return response($imageData)->header('Content-Type', 'image/png');
+        return response($imageData)
+            ->header('Content-Type', 'image/png');
     }
-});
+})->name('media.qr');
 
+// Barcode endpoint - FIXED
 Route::get('/media/barcode-uid', function () {
     $uid = request('uid');
-    if (!$uid) abort(400, 'UID required');
-    
-    // Generate barcode using existing library
-    try {
-        $generator = new \Picqer\Barcode\BarcodeGeneratorPNG();
-        $barcode = $generator->getBarcode($uid, $generator::TYPE_CODE_128, 3, 50);
-        
-        header('Content-Type: image/png');
-        echo $barcode;
-        exit;
-    } catch (Exception $e) {
-        abort(500, 'Barcode generation failed');
+    if (!$uid) {
+        abort(400, 'UID required');
     }
-});
+    
+    try {
+        // Use your UidGenerator service
+        $barcodeBase64 = \App\Services\UidGenerator::generateBarcode($uid);
+        $barcodeBinary = base64_decode($barcodeBase64);
+        
+        return response($barcodeBinary)
+            ->header('Content-Type', 'image/png')
+            ->header('Cache-Control', 'public, max-age=3600')
+            ->header('Content-Disposition', 'inline; filename="barcode-' . $uid . '.png"');
+        
+    } catch (Exception $e) {
+        // Emergency fallback
+        $width = 300;
+        $height = 60;
+        $image = imagecreate($width, $height);
+        
+        $white = imagecolorallocate($image, 255, 255, 255);
+        $black = imagecolorallocate($image, 0, 0, 0);
+        
+        imagefill($image, 0, 0, $white);
+        
+        // Simple barcode pattern
+        for ($i = 0; $i < 50; $i++) {
+            $x = 20 + ($i * 4);
+            if ($i % 3 != 0) {
+                imagefilledrectangle($image, $x, 10, $x + 2, 40, $black);
+            }
+        }
+        
+        // Add UID text
+        imagestring($image, 3, ($width - strlen($uid) * 10) / 2, 45, $uid, $black);
+        
+        ob_start();
+        imagepng($image);
+        $imageData = ob_get_contents();
+        ob_end_clean();
+        imagedestroy($image);
+        
+        return response($imageData)
+            ->header('Content-Type', 'image/png');
+    }
+})->name('media.barcode');
+
+// Test routes to verify QR and Barcode generation
+Route::get('/test/qr/{uid}', function ($uid) {
+    echo '<h2>QR Code Test for UID: ' . $uid . '</h2>';
+    echo '<img src="/media/qr-uid?uid=' . $uid . '" alt="QR Code" style="border: 1px solid #ccc;">';
+    echo '<br><br>';
+    echo '<a href="/media/qr-uid?uid=' . $uid . '" target="_blank">Direct QR Link</a>';
+})->where('uid', '[0-9]+');
+
+Route::get('/test/barcode/{uid}', function ($uid) {
+    echo '<h2>Barcode Test for UID: ' . $uid . '</h2>';
+    echo '<img src="/media/barcode-uid?uid=' . $uid . '" alt="Barcode" style="border: 1px solid #ccc;">';
+    echo '<br><br>';
+    echo '<a href="/media/barcode-uid?uid=' . $uid . '" target="_blank">Direct Barcode Link</a>';
+})->where('uid', '[0-9]+');
 
 // Fallback login route for Laravel (required for some middleware)
 Route::get('/login', function () {

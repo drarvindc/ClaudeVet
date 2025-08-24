@@ -1,5 +1,5 @@
 <?php
-// tests/Feature/PatientIntakeTest.php
+// tests/Feature/PatientIntakeTest.php - Fixed for new database structure
 
 namespace Tests\Feature;
 
@@ -8,6 +8,7 @@ use App\Models\Pet;
 use App\Models\OwnerMobile;
 use App\Models\Species;
 use App\Models\Breed;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
@@ -19,6 +20,17 @@ class PatientIntakeTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        
+        // Create admin user for authentication
+        $admin = User::create([
+            'name' => 'Test Admin',
+            'email' => 'admin@test.com',
+            'password' => bcrypt('password'),
+            'role' => 'admin'
+        ]);
+        
+        // Authenticate all requests
+        $this->actingAs($admin);
         
         // Create default species and breeds for testing
         $species = Species::create([

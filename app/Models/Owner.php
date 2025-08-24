@@ -1,15 +1,17 @@
 <?php
 
+// app/Models/Owner.php - Updated with completion tracking
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Owner extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -20,6 +22,11 @@ class Owner extends Model
         'pincode',
         'status',
         'created_via',
+        'is_complete',
+    ];
+
+    protected $casts = [
+        'is_complete' => 'boolean',
     ];
 
     public function pets(): HasMany
@@ -45,12 +52,12 @@ class Owner extends Model
 
     public function getPrimaryMobileNumberAttribute(): ?string
     {
-        return $this->primaryMobile()->first()?->mobile_e164;
+        return $this->primaryMobile()->first()?->mobile;
     }
 
     public function getAllMobileNumbersAttribute(): array
     {
-        return $this->mobiles()->pluck('mobile_e164')->toArray();
+        return $this->mobiles()->pluck('mobile')->toArray();
     }
 
     public function isProvisional(): bool
@@ -63,11 +70,29 @@ class Owner extends Model
         return $this->status === 'active';
     }
 
+    public function isComplete(): bool
+    {
+        return $this->is_complete === true;
+    }
+
     // Static methods for search
     public static function findByMobile(string $mobile): ?self
     {
-        return self::whereHas('mobiles', function ($query) use ($mobile) {
-            $query->where('mobile_e164', 'LIKE', '%' . $mobile);
+        $normalizedMobile = OwnerMobile::normalizeMobile($mobile);
+        
+        return self::whereHas('mobiles', function ($query) use ($normalizedMobile) {
+            $query->where('mobile', $normalizedMobile);
         })->first();
     }
+
+    public static function findPetsByMobile(string $mobile)
+    {
+        $normalizedMobile = OwnerMobile::normalizeMobile($mobile);
+        
+        return Pet::whereHas('owner.mobiles', function ($query) use ($normalizedMobile) {
+            $query->where('mobile', $normalizedMobile);
+        })->with(['owner', 'species', 'breed'])->get();
+    }
 }
+
+// =============================================================

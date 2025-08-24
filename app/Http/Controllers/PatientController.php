@@ -3,207 +3,298 @@
 namespace App\Http\Controllers;
 
 use App\Models\Owner;
-use App\Models\OwnerMobile;
 use App\Models\Pet;
+use App\Models\OwnerMobile;
 use App\Models\Species;
 use App\Models\Breed;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Validation\ValidationException;
 
 class PatientController extends Controller
 {
-    public function intake(): View
+    /**
+     * Show the patient intake search form
+     */
+    public function intake()
     {
         return view('patient.intake');
     }
 
+    /**
+     * Search for patient by mobile or UID
+     */
     public function search(Request $request)
     {
-        $input = $request->input('search', '');
-        $input = trim($input);
+        $request->validate([
+            'search' => 'required|string|min:6|max:10'
+        ]);
 
-        if (empty($input)) {
-            return back()->with('error', 'Please enter a mobile number or unique ID');
-        }
+        $search = preg_replace('/[^0-9]/', '', $request->search);
 
-        // Determine if input is UID (6 digits) or mobile
-        if (preg_match('/^\d{6}$/', $input)) {
-            return $this->searchByUID($input);
+        // Validate input length
+        if (strlen($search) === 6) {
+            return $this->searchByUid($search);
+        } elseif (strlen($search) === 10) {
+            return $this->searchByMobile($search);
         } else {
-            return $this->searchByMobile($input);
+            return response()->json([
+                'success' => false,
+                'message' => 'Please enter exactly 6 digits for UID or exactly 10 digits for mobile number'
+            ]);
         }
     }
 
-    private function searchByUID(string $uid)
+    /**
+     * Search by UID (6 digits)
+     */
+    private function searchByUid(string $uid)
     {
-        $pet = Pet::where('unique_id', $uid)
-            ->with(['owner.mobiles', 'species', 'breed'])
-            ->first();
+        $pet = Pet::findByUid($uid);
 
         if (!$pet) {
-            return view('patient.not-found', [
-                'search_input' => $uid,
-                'search_type' => 'uid'
+            return response()->json([
+                'success' => false,
+                'message' => "Pet with UID {$uid} not found",
+                'action' => 'not_found',
+                'search_value' => $uid
             ]);
         }
 
-        // Get all pets for the same owner (siblings)
+        // Get all pets from same owner (siblings)
         $allPets = Pet::where('owner_id', $pet->owner_id)
-            ->with(['species', 'breed'])
-            ->get();
+                      ->active()
+                      ->with(['species', 'breed'])
+                      ->get();
 
-        return view('patient.found', [
-            'search_type' => 'uid',
-            'matched_pet' => $pet,
+        return response()->json([
+            'success' => true,
+            'message' => 'Pet found',
+            'action' => 'pet_found',
+            'pet' => $pet,
+            'siblings' => $allPets->where('id', '!=', $pet->id)->values(),
             'owner' => $pet->owner,
-            'all_pets' => $allPets,
+            'all_mobiles' => $pet->owner->all_mobile_numbers,
+            'has_duplicates' => $pet->isDuplicate() || $pet->hasDuplicates()
         ]);
     }
 
+    /**
+     * Search by Mobile (10 digits)
+     */
     private function searchByMobile(string $mobile)
     {
-        // Clean the input mobile - get just the digits
-        $cleanMobile = preg_replace('/\D/', '', $mobile);
-        
-        // For Indian numbers, get last 10 digits (removes country codes if present)
-        if (strlen($cleanMobile) > 10) {
-            $cleanMobile = substr($cleanMobile, -10);
-        }
-        
-        // Search in the mobile field (original format in your database)
-        $owner = Owner::whereHas('mobiles', function ($query) use ($cleanMobile) {
-            $query->where('mobile', $cleanMobile);
-        })->with(['mobiles', 'pets.species', 'pets.breed'])->first();
-        
-        // If not found, try partial search on mobile_e164 (your database has full numbers there)
-        if (!$owner) {
-            $owner = Owner::whereHas('mobiles', function ($query) use ($cleanMobile) {
-                $query->where('mobile_e164', 'LIKE', '%' . $cleanMobile . '%');
-            })->with(['mobiles', 'pets.species', 'pets.breed'])->first();
-        }
-
-        if (!$owner) {
-            return view('patient.not-found', [
-                'search_input' => $mobile,
-                'search_type' => 'mobile'
+        // Validate mobile number format
+        if (!OwnerMobile::validateMobile($mobile)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9'
             ]);
         }
 
-        return view('patient.found', [
-            'search_type' => 'mobile',
-            'matched_pet' => null,
-            'owner' => $owner,
-            'all_pets' => $owner->pets,
+        $normalizedMobile = OwnerMobile::normalizeMobile($mobile);
+        $pets = Owner::findPetsByMobile($normalizedMobile);
+
+        if ($pets->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => "No pets found for mobile number {$mobile}",
+                'action' => 'not_found',
+                'search_value' => $mobile
+            ]);
+        }
+
+        // If only one pet found, return it directly
+        if ($pets->count() === 1) {
+            $pet = $pets->first();
+            return response()->json([
+                'success' => true,
+                'message' => 'Pet found',
+                'action' => 'single_pet_found',
+                'pet' => $pet,
+                'owner' => $pet->owner,
+                'all_mobiles' => $pet->owner->all_mobile_numbers,
+                'has_duplicates' => $pet->isDuplicate() || $pet->hasDuplicates()
+            ]);
+        }
+
+        // Multiple pets found, show selection interface
+        return response()->json([
+            'success' => true,
+            'message' => 'Multiple pets found for this mobile number',
+            'action' => 'multiple_pets_found',
+            'pets' => $pets,
+            'mobile' => $mobile,
+            'owner_name' => $pets->first()->owner->name
         ]);
     }
 
-    public function createProvisional(Request $request): RedirectResponse
+    /**
+     * Create provisional patient record
+     */
+    public function createProvisional(Request $request)
     {
         $request->validate([
-            'mobile' => 'required|string|min:10',
+            'mobile' => 'required|digits:10'
         ]);
 
-        try {
-            DB::beginTransaction();
+        $mobile = $request->mobile;
 
-            $mobile = OwnerMobile::normalizeMobile($request->mobile);
+        // Validate mobile number
+        if (!OwnerMobile::validateMobile($mobile)) {
+            throw ValidationException::withMessages([
+                'mobile' => 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9'
+            ]);
+        }
 
-            // Generate unique ID
-            $uniqueId = $this->generateUniqueId();
+        // Check if mobile already exists
+        $existingPets = Owner::findPetsByMobile($mobile);
+        if ($existingPets->isNotEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This mobile number already exists in the system. Please search instead.'
+            ]);
+        }
+
+        return DB::transaction(function () use ($mobile) {
+            // Generate new UID
+            $uid = Pet::generateUniqueId();
 
             // Create provisional owner
             $owner = Owner::create([
-                'name' => 'Unknown Owner',
+                'name' => 'Incomplete Owner',
                 'status' => 'active',
                 'created_via' => 'provisional',
+                'is_complete' => false
             ]);
 
-            // Add mobile number (store as 10-digit number)
+            // Add mobile number
             OwnerMobile::create([
                 'owner_id' => $owner->id,
                 'mobile' => $mobile,
-                'mobile_e164' => $mobile, // Store same format since no +91
                 'is_primary' => true,
+                'is_whatsapp' => false,
+                'is_verified' => false
             ]);
+
+            // Get default species and breed for provisional pet
+            $defaultSpecies = Species::where('name', 'Canine')->first();
+            $defaultBreed = Breed::where('species_id', $defaultSpecies->id)
+                                 ->where('name', 'Mixed Breed')
+                                 ->first();
 
             // Create provisional pet
             $pet = Pet::create([
-                'unique_id' => $uniqueId,
+                'unique_id' => $uid,
                 'owner_id' => $owner->id,
-                'name' => 'Unknown Pet',
-                'species_id' => 1, // Default to Canine
-                'breed_id' => 13, // Default to Mixed Breed
-                'gender' => 'male', // Default
+                'name' => 'Incomplete Pet',
+                'species_id' => $defaultSpecies->id,
+                'breed_id' => $defaultBreed->id,
+                'gender' => 'male', // Default value
                 'status' => 'active',
+                'created_via' => 'provisional',
+                'is_complete' => false
             ]);
 
-            DB::commit();
+            // Generate QR and Barcode
+            $qrCode = $this->generateQRCode($uid);
+            $barcode = $this->generateBarcode($uid);
 
-            return redirect()->route('patient.letterhead', ['uid' => $uniqueId])
-                ->with('success', 'Provisional record created successfully!');
-
-        } catch (\Exception $e) {
-            DB::rollback();
-            return back()->with('error', 'Failed to create provisional record. Please try again.');
-        }
+            return response()->json([
+                'success' => true,
+                'message' => 'Provisional patient created successfully',
+                'action' => 'provisional_created',
+                'uid' => $uid,
+                'pet' => $pet->load(['owner', 'species', 'breed']),
+                'owner' => $owner,
+                'mobile' => $mobile,
+                'qr_code' => $qrCode,
+                'barcode' => $barcode
+            ]);
+        });
     }
 
-    public function letterhead(string $uid): View
+    /**
+     * Show letterhead for a pet
+     */
+    public function letterhead(string $uid)
     {
-        $pet = Pet::where('unique_id', $uid)
-            ->with(['owner.mobiles', 'species', 'breed'])
-            ->firstOrFail();
+        $pet = Pet::findByUid($uid);
 
-        // Generate QR and Barcode (base64 encoded)
+        if (!$pet) {
+            abort(404, 'Pet not found');
+        }
+
+        // Generate QR and Barcode
         $qrCode = $this->generateQRCode($uid);
         $barcode = $this->generateBarcode($uid);
 
-        return view('patient.letterhead', [
-            'pet' => $pet,
-            'qrCode' => $qrCode,
-            'barcode' => $barcode,
-        ]);
+        return view('patient.letterhead', compact('pet', 'qrCode', 'barcode'));
     }
 
+    /**
+     * Show pet selection interface for multi-pet families
+     */
+    public function selectPet(Request $request)
+    {
+        $request->validate([
+            'mobile' => 'required|digits:10'
+        ]);
+
+        $pets = Owner::findPetsByMobile($request->mobile);
+
+        if ($pets->isEmpty()) {
+            return redirect()->route('patient.intake')->with('error', 'No pets found for this mobile number');
+        }
+
+        return view('patient.select-pet', compact('pets'));
+    }
+
+    /**
+     * Generate QR Code for UID
+     */
     private function generateQRCode(string $uid): string
     {
-        // Simple QR code generation - you can enhance this
-        $data = "UID:{$uid}";
-        $size = 150;
-        
-        // Using Google Charts API as fallback
-        $url = "https://chart.googleapis.com/chart?chs={$size}x{$size}&cht=qr&chl=" . urlencode($data);
-        
-        // Get the image and convert to base64
-        $imageData = @file_get_contents($url);
-        if ($imageData) {
-            return base64_encode($imageData);
+        try {
+            // Use QR code generation service (assuming existing implementation)
+            $url = url("/media/qr-uid?uid={$uid}");
+            $imageData = @file_get_contents($url);
+            
+            if ($imageData) {
+                return base64_encode($imageData);
+            }
+        } catch (\Exception $e) {
+            // Fallback implementation if service fails
         }
         
-        // Fallback: create a simple placeholder
         return $this->createPlaceholderImage("QR\n{$uid}");
     }
 
+    /**
+     * Generate Barcode for UID
+     */
     private function generateBarcode(string $uid): string
     {
-        // Simple barcode generation - you can enhance this with a proper library
-        // For now, using Google Charts API
-        $url = "https://chart.googleapis.com/chart?chs=200x50&cht=qr&chl={$uid}";
-        
-        $imageData = @file_get_contents($url);
-        if ($imageData) {
-            return base64_encode($imageData);
+        try {
+            // Use barcode generation service (assuming existing implementation)
+            $url = url("/media/barcode-uid?uid={$uid}");
+            $imageData = @file_get_contents($url);
+            
+            if ($imageData) {
+                return base64_encode($imageData);
+            }
+        } catch (\Exception $e) {
+            // Fallback implementation if service fails
         }
         
-        // Fallback
         return $this->createPlaceholderImage($uid);
     }
 
+    /**
+     * Create placeholder image when QR/Barcode generation fails
+     */
     private function createPlaceholderImage(string $text): string
     {
-        // Create a simple text-based placeholder image
         $width = 200;
         $height = 100;
         $image = imagecreate($width, $height);
@@ -221,5 +312,49 @@ class PatientController extends Controller
         imagedestroy($image);
         
         return base64_encode($imageData);
+    }
+
+    /**
+     * Add new pet to existing family
+     */
+    public function addPetToFamily(Request $request)
+    {
+        $request->validate([
+            'owner_id' => 'required|exists:owners,id'
+        ]);
+
+        $owner = Owner::findOrFail($request->owner_id);
+
+        return DB::transaction(function () use ($owner) {
+            // Generate new UID for the additional pet
+            $uid = Pet::generateUniqueId();
+
+            // Get default species and breed
+            $defaultSpecies = Species::where('name', 'Canine')->first();
+            $defaultBreed = Breed::where('species_id', $defaultSpecies->id)
+                                 ->where('name', 'Mixed Breed')
+                                 ->first();
+
+            // Create new pet for existing owner
+            $pet = Pet::create([
+                'unique_id' => $uid,
+                'owner_id' => $owner->id,
+                'name' => 'Additional Pet',
+                'species_id' => $defaultSpecies->id,
+                'breed_id' => $defaultBreed->id,
+                'gender' => 'male',
+                'status' => 'active',
+                'created_via' => 'provisional',
+                'is_complete' => false
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'New pet added to family',
+                'action' => 'pet_added',
+                'uid' => $uid,
+                'pet' => $pet->load(['owner', 'species', 'breed'])
+            ]);
+        });
     }
 }

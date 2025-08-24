@@ -1,4 +1,5 @@
 <?php
+// app/Models/OwnerMobile.php - Updated for simplified mobile handling
 
 namespace App\Models;
 
@@ -13,7 +14,6 @@ class OwnerMobile extends Model
     protected $fillable = [
         'owner_id',
         'mobile',
-        'mobile_e164',
         'is_primary',
         'is_whatsapp',
         'is_verified',
@@ -33,10 +33,10 @@ class OwnerMobile extends Model
     // Helper methods
     public function getFormattedMobileAttribute(): string
     {
-        // Format +919876543210 to +91 98765 43210
-        $mobile = $this->mobile_e164;
-        if (str_starts_with($mobile, '+91')) {
-            return '+91 ' . substr($mobile, 3, 5) . ' ' . substr($mobile, 8);
+        // Format 9876543210 to 98765 43210
+        $mobile = $this->mobile;
+        if (strlen($mobile) === 10) {
+            return substr($mobile, 0, 5) . ' ' . substr($mobile, 5);
         }
         return $mobile;
     }
@@ -46,7 +46,7 @@ class OwnerMobile extends Model
         // Remove all non-digits
         $mobile = preg_replace('/\D/', '', $mobile);
         
-        // For Indian mobile numbers, just return the 10-digit number
+        // For Indian mobile numbers, ensure it's exactly 10 digits
         if (strlen($mobile) === 10 && in_array(substr($mobile, 0, 1), ['6', '7', '8', '9'])) {
             return $mobile;
         }
@@ -58,4 +58,12 @@ class OwnerMobile extends Model
         
         return $mobile;
     }
+
+    public static function validateMobile(string $mobile): bool
+    {
+        $normalized = self::normalizeMobile($mobile);
+        return strlen($normalized) === 10 && in_array(substr($normalized, 0, 1), ['6', '7', '8', '9']);
+    }
 }
+
+// =============================================================

@@ -129,7 +129,7 @@ class PatientController extends Controller
         ]);
     }
 
-    /**
+      /**
      * Create provisional patient record
      */
     public function createProvisional(Request $request)
@@ -147,9 +147,9 @@ class PatientController extends Controller
             ]);
         }
 
-        // Check if mobile already exists
-        $existingPets = Owner::findPetsByMobile($mobile);
-        if ($existingPets->isNotEmpty()) {
+        // Check if mobile already exists - FIXED LOGIC
+        $existingMobile = OwnerMobile::where('mobile', $mobile)->first();
+        if ($existingMobile) {
             return response()->json([
                 'success' => false,
                 'message' => 'This mobile number already exists in the system. Please search instead.'
@@ -178,10 +178,17 @@ class PatientController extends Controller
             ]);
 
             // Get default species and breed for provisional pet
-            $defaultSpecies = Species::where('name', 'Canine')->first();
-            $defaultBreed = Breed::where('species_id', $defaultSpecies->id)
-                                 ->where('name', 'Mixed Breed')
-                                 ->first();
+            $defaultSpecies = Species::firstOrCreate([
+                'name' => 'Canine'
+            ], [
+                'common_name' => 'Dog',
+                'is_active' => true
+            ]);
+            
+            $defaultBreed = Breed::firstOrCreate([
+                'species_id' => $defaultSpecies->id,
+                'name' => 'Mixed Breed'
+            ]);
 
             // Create provisional pet
             $pet = Pet::create([

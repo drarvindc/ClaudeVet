@@ -60,10 +60,14 @@ class OwnerMobile extends Model
     }
 
     public static function validateMobile(string $mobile): bool
-    {
-        $normalized = self::normalizeMobile($mobile);
-        return strlen($normalized) === 10 && in_array(substr($normalized, 0, 1), ['6', '7', '8', '9']);
-    }
+{
+    $normalized = self::normalizeMobile($mobile);
+    
+    // Must be exactly 10 digits and start with 6,7,8,9
+    return strlen($normalized) === 10 && 
+           ctype_digit($normalized) && 
+           in_array(substr($normalized, 0, 1), ['6', '7', '8', '9']);
+}
 }
 
 // =============================================================

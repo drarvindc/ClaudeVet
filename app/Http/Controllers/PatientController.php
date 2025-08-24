@@ -250,44 +250,45 @@ class PatientController extends Controller
         return view('patient.select-pet', compact('pets'));
     }
 
-    /**
-     * Generate QR Code for UID
+/**
+     * Generate QR Code for UID - Fixed to use your existing library
      */
     private function generateQRCode(string $uid): string
     {
         try {
-            // Use QR code generation service (assuming existing implementation)
-            $url = url("/media/qr-uid?uid={$uid}");
-            $imageData = @file_get_contents($url);
+            // Use SimpleSoftwareIO QR Code (which you have installed)
+            $qrCode = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')
+                ->size(200)
+                ->margin(2)
+                ->generate($uid);
             
-            if ($imageData) {
-                return base64_encode($imageData);
-            }
+            return base64_encode($qrCode);
+            
         } catch (\Exception $e) {
-            // Fallback implementation if service fails
+            // Log error for debugging
+            \Log::info("QR Code generation failed for UID {$uid}: " . $e->getMessage());
+            
+            // Fallback to placeholder
+            return $this->createPlaceholderImage("QR\n{$uid}");
         }
-        
-        return $this->createPlaceholderImage("QR\n{$uid}");
     }
 
     /**
-     * Generate Barcode for UID
+     * Generate Barcode for UID - Using your existing library
      */
     private function generateBarcode(string $uid): string
     {
         try {
-            // Use barcode generation service (assuming existing implementation)
-            $url = url("/media/barcode-uid?uid={$uid}");
-            $imageData = @file_get_contents($url);
+            // Use Picqer Barcode (which you have installed)
+            $generator = new \Picqer\Barcode\BarcodeGeneratorPNG();
+            $barcode = $generator->getBarcode($uid, $generator::TYPE_CODE_128, 3, 50);
             
-            if ($imageData) {
-                return base64_encode($imageData);
-            }
+            return base64_encode($barcode);
+            
         } catch (\Exception $e) {
-            // Fallback implementation if service fails
+            \Log::info("Barcode generation failed for UID {$uid}: " . $e->getMessage());
+            return $this->createPlaceholderImage($uid);
         }
-        
-        return $this->createPlaceholderImage($uid);
     }
 
     /**

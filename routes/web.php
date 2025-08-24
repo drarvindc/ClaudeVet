@@ -57,22 +57,44 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
-// Media generation routes (for QR/Barcode - keep existing if they work)
+// Replace your existing /media/qr-uid route with this:
+
 Route::get('/media/qr-uid', function () {
     $uid = request('uid');
-    if (!$uid) abort(400, 'UID required');
+    if (!$uid) {
+        abort(400, 'UID required');
+    }
     
-    // Generate QR code using existing library
     try {
-        $qrCode = new \Endroid\QrCode\QrCode($uid);
-        $qrCode->setSize(200);
-        $qrCode->setMargin(10);
+        // Use SimpleSoftwareIO QR Code library that you have installed
+        $qrCode = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')
+            ->size(200)
+            ->margin(2)
+            ->generate($uid);
         
-        header('Content-Type: image/png');
-        echo $qrCode->writeString();
-        exit;
+        return response($qrCode)->header('Content-Type', 'image/png');
+        
     } catch (Exception $e) {
-        abort(500, 'QR generation failed');
+        // Create simple placeholder on failure
+        $width = 200;
+        $height = 200;
+        $image = imagecreate($width, $height);
+        
+        $white = imagecolorallocate($image, 255, 255, 255);
+        $black = imagecolorallocate($image, 0, 0, 0);
+        
+        imagefill($image, 0, 0, $white);
+        imagestring($image, 5, 70, 80, 'QR', $black);
+        imagestring($image, 4, 60, 100, $uid, $black);
+        imagerectangle($image, 10, 10, 190, 190, $black);
+        
+        ob_start();
+        imagepng($image);
+        $imageData = ob_get_contents();
+        ob_end_clean();
+        imagedestroy($image);
+        
+        return response($imageData)->header('Content-Type', 'image/png');
     }
 });
 

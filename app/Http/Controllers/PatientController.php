@@ -79,19 +79,12 @@ class PatientController extends Controller
         ]);
     }
 
-    /**
+/**
      * Search by Mobile (10 digits)
      */
     private function searchByMobile(string $mobile)
     {
-        // Validate mobile number format
-        if (!OwnerMobile::validateMobile($mobile)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9'
-            ]);
-        }
-
+        // NO VALIDATION - just normalize and search
         $normalizedMobile = OwnerMobile::normalizeMobile($mobile);
         $pets = Owner::findPetsByMobile($normalizedMobile);
 
@@ -129,7 +122,7 @@ class PatientController extends Controller
         ]);
     }
 
-      /**
+    /**
      * Create provisional patient record
      */
     public function createProvisional(Request $request)
@@ -140,14 +133,7 @@ class PatientController extends Controller
 
         $mobile = $request->mobile;
 
-        // Validate mobile number
-        if (!OwnerMobile::validateMobile($mobile)) {
-            throw ValidationException::withMessages([
-                'mobile' => 'Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9'
-            ]);
-        }
-
-        // Check if mobile already exists - FIXED LOGIC
+        // NO VALIDATION - just check if mobile already exists
         $existingMobile = OwnerMobile::where('mobile', $mobile)->first();
         if ($existingMobile) {
             return response()->json([

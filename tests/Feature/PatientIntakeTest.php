@@ -130,7 +130,7 @@ class PatientIntakeTest extends TestCase
         $response->assertStatus(422);
     }
 
-    /** @test */
+/** @test */
     public function it_handles_uid_not_found()
     {
         // Test with non-existent UID
@@ -146,9 +146,9 @@ class PatientIntakeTest extends TestCase
     }
 
     /** @test */
-    public function it_validates_mobile_number_format()
+    public function it_searches_any_mobile_number()
     {
-        // Test mobile not starting with valid digits
+        // Any 10-digit mobile number should be searched (no format validation)
         $response = $this->postJson('/patient/search', [
             'search' => '1234567890'
         ]);
@@ -156,8 +156,11 @@ class PatientIntakeTest extends TestCase
         $response->assertStatus(200);
         
         $data = $response->json();
-        $this->assertFalse($data['success']);
-        $this->assertStringContainsString('valid 10-digit mobile number starting with 6, 7, 8, or 9', $data['message']);
+        // Should either find pets or return "not found" - no validation error
+        if (!$data['success']) {
+            $this->assertEquals('not_found', $data['action']);
+            $this->assertStringContainsString('No pets found for mobile number', $data['message']);
+        }
     }
 
     /** @test */
@@ -207,15 +210,14 @@ class PatientIntakeTest extends TestCase
         }
     }
 
-   /** @test */
+    /** @test */
     public function mobile_validation_works_correctly()
     {
-        // Test valid 10-digit numbers
+        // Test any 10-digit numbers are valid
         $this->assertTrue(OwnerMobile::validateMobile('9876543210'));
         $this->assertTrue(OwnerMobile::validateMobile('8123456789'));
-        $this->assertTrue(OwnerMobile::validateMobile('7987654321'));
-        $this->assertTrue(OwnerMobile::validateMobile('6123456789'));
-        $this->assertTrue(OwnerMobile::validateMobile('1234567890')); // Any 10 digits are valid now
+        $this->assertTrue(OwnerMobile::validateMobile('1234567890'));
+        $this->assertTrue(OwnerMobile::validateMobile('0000000000'));
         
         // Invalid mobile numbers
         $this->assertFalse(OwnerMobile::validateMobile('98765432')); // Too short
@@ -225,7 +227,7 @@ class PatientIntakeTest extends TestCase
         $this->assertTrue(OwnerMobile::validateMobile('98765432100')); // Takes first 10: 9876543210
     }
 
-      /** @test */
+    /** @test */
     public function mobile_normalization_works_correctly()
     {
         // Test the OwnerMobile normalization method - takes first 10 digits

@@ -122,8 +122,8 @@ class PatientController extends Controller
         ]);
     }
 
-    /**
-     * Create provisional patient record
+/**
+     * Create provisional patient record - Updated with QR storage
      */
     public function createProvisional(Request $request)
     {
@@ -133,7 +133,7 @@ class PatientController extends Controller
 
         $mobile = $request->mobile;
 
-        // NO VALIDATION - just check if mobile already exists
+        // Check if mobile already exists
         $existingMobile = OwnerMobile::where('mobile', $mobile)->first();
         if ($existingMobile) {
             return response()->json([
@@ -145,6 +145,9 @@ class PatientController extends Controller
         return DB::transaction(function () use ($mobile) {
             // Generate new UID
             $uid = Pet::generateUniqueId();
+
+            // Generate and store QR/Barcode immediately
+            $qrResult = \App\Services\QRCodeStorageService::generateAndStore($uid);
 
             // Create provisional owner
             $owner = Owner::create([
@@ -163,7 +166,7 @@ class PatientController extends Controller
                 'is_verified' => false
             ]);
 
-            // Get default species and breed for provisional pet
+            // Get default species and breed
             $defaultSpecies = Species::firstOrCreate([
                 'name' => 'Canine'
             ], [
@@ -183,15 +186,11 @@ class PatientController extends Controller
                 'name' => 'Incomplete Pet',
                 'species_id' => $defaultSpecies->id,
                 'breed_id' => $defaultBreed->id,
-                'gender' => 'male', // Default value
+                'gender' => 'male',
                 'status' => 'active',
                 'created_via' => 'provisional',
                 'is_complete' => false
             ]);
-
-            // Generate QR and Barcode
-            $qrCode = $this->generateQRCode($uid);
-            $barcode = $this->generateBarcode($uid);
 
             return response()->json([
                 'success' => true,
@@ -201,14 +200,15 @@ class PatientController extends Controller
                 'pet' => $pet->load(['owner', 'species', 'breed']),
                 'owner' => $owner,
                 'mobile' => $mobile,
-                'qr_code' => $qrCode,
-                'barcode' => $barcode
+                'qr_generated' => $qrResult['success'],
+                'qr_url' => $qrResult['qr_url'] ?? null,
+                'barcode_url' => $qrResult['barcode_url'] ?? null
             ]);
         });
     }
 
     /**
-     * Show letterhead for a pet
+     * Show letterhead for a pet - Updated to use stored images
      */
     public function letterhead(string $uid)
     {
@@ -218,11 +218,15 @@ class PatientController extends Controller
             abort(404, 'Pet not found');
         }
 
-        // Generate QR and Barcode
-        $qrCode = $this->generateQRCode($uid);
-        $barcode = $this->generateBarcode($uid);
+        // Ensure QR/Barcode images exist
+        $qrResult = \App\Services\QRCodeStorageService::ensureExists($uid);
 
-        return view('patient.letterhead', compact('pet', 'qrCode', 'barcode'));
+        return view('patient.letterhead', [
+            'pet' => $pet,
+            'qr_url' => $qrResult['qr_url'] ?? null,
+            'barcode_url' => $qrResult['barcode_url'] ?? null,
+            'qr_success' => $qrResult['success'] ?? false
+        ]);
     }
 
     /**

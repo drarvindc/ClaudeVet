@@ -1,145 +1,318 @@
-@extends('layouts.app')
+{{-- resources/views/patient/letterhead.blade.php - Updated to use stored images --}}
 
-@section('title', 'Prescription - ' . $pet->display_name)
-
-@section('content')
-<div class="max-w-4xl mx-auto p-8 bg-white" id="letterhead">
-    <!-- Header -->
-    <div class="border-b-2 border-gray-800 pb-4 mb-6">
-        <div class="text-center">
-            <h1 class="text-3xl font-bold text-gray-800">MetroVet Clinic</h1>
-            <p class="text-sm text-gray-600 mt-2">
-                304, Popular Nagar Shopping Complex, Warje, Pune<br>
-                Phone: 7020241565 | Email: info@metrovet.in
-            </p>
-        </div>
-    </div>
-
-    <!-- Patient Info -->
-    <div class="grid grid-cols-2 gap-6 mb-6">
-        <div>
-            <p><strong>Date:</strong> {{ now()->format('d/m/Y') }}</p>
-            <p><strong>UID:</strong> {{ $pet->unique_id }}</p>
-            @if($pet->visits->count() > 0)
-                <p><strong>Visit #:</strong> V{{ str_pad($pet->visits->first()->visit_seq, 4, '0', STR_PAD_LEFT) }}</p>
-            @endif
-        </div>
-        <div>
-            <p><strong>Owner:</strong> {{ $pet->owner->full_name }}</p>
-            <p><strong>Pet:</strong> {{ $pet->display_name }}</p>
-            @if($pet->species)
-                <p><strong>Species:</strong> {{ $pet->species->display_name }}</p>
-            @endif
-            @if($pet->breed)
-                <p><strong>Breed:</strong> {{ $pet->breed->name }}</p>
-            @endif
-            @if($pet->formatted_age !== 'Unknown')
-                <p><strong>Age:</strong> {{ $pet->formatted_age }}</p>
-            @endif
-        </div>
-    </div>
-
-    <!-- QR and Barcode -->
-    <div class="flex justify-between items-center mb-6">
-        <div class="text-center">
-            <img src="data:image/png;base64,{{ $qrCode }}" alt="QR Code" class="w-24 h-24 mx-auto">
-            <p class="text-xs mt-1">QR Code</p>
-        </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Letterhead - {{ $pet->unique_id }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
         
-        <div class="text-center flex-1 mx-8">
-            @if($pet->isProvisional())
-                <div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 rounded">
-                    <p class="font-semibold">PROVISIONAL RECORD</p>
-                    <p class="text-xs">Complete details in admin panel</p>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .letterhead-header {
+            text-align: center;
+            border-bottom: 2px solid #0066cc;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .clinic-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0066cc;
+            margin-bottom: 5px;
+        }
+        
+        .clinic-details {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .codes-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+        
+        .qr-code, .barcode {
+            text-align: center;
+        }
+        
+        .qr-code img, .barcode img {
+            max-width: 120px;
+            max-height: 120px;
+            border: 1px solid #ccc;
+            padding: 5px;
+            background: white;
+        }
+        
+        .barcode img {
+            max-width: 200px;
+            max-height: 60px;
+        }
+        
+        .code-label {
+            font-size: 10px;
+            margin-top: 5px;
+            color: #666;
+        }
+        
+        .patient-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .info-item {
+            margin-bottom: 10px;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #333;
+            margin-right: 10px;
+        }
+        
+        .info-value {
+            color: #666;
+        }
+        
+        .provisional-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .prescription-area {
+            min-height: 400px;
+            border: 2px dashed #ccc;
+            padding: 20px;
+            margin-bottom: 30px;
+            background: #fafafa;
+        }
+        
+        .prescription-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .vital-signs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .vital-item {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .signature-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .signature-box {
+            text-align: center;
+            min-width: 200px;
+        }
+        
+        .signature-line {
+            border-bottom: 1px solid #333;
+            margin-bottom: 5px;
+            height: 30px;
+        }
+        
+        @media print {
+            .no-print {
+                display: none;
+            }
+            
+            body {
+                background: white;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Letterhead Header -->
+    <div class="letterhead-header">
+        <div class="clinic-name">MetroVet Clinic</div>
+        <div class="clinic-details">
+            304, Popular Nagar Shopping Complex, Warje, Pune<br>
+            Phone: 7020241565 | Email: info@metrovet.in
+        </div>
+        <div class="clinic-details" style="font-size: 10px; margin-top: 10px;">
+            Date: {{ date('d/m/Y') }} | Time: {{ date('H:i') }}
+        </div>
+    </div>
+
+    <!-- QR Code and Barcode Section -->
+    <div class="codes-section">
+        <div class="qr-code">
+            @if($qr_success && $qr_url)
+                <img src="{{ asset('storage/' . ltrim($qr_url, '/storage/')) }}" alt="QR Code">
+            @else
+                <div style="width: 120px; height: 120px; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
+                    <span style="font-size: 10px; color: #666;">QR Code<br>{{ $pet->unique_id }}</span>
                 </div>
             @endif
+            <div class="code-label">QR Code</div>
         </div>
         
-        <div class="text-center">
-            <img src="data:image/png;base64,{{ $barcode }}" alt="Barcode" class="h-16 mx-auto">
-            <p class="text-xs mt-1 font-mono">{{ $pet->unique_id }}</p>
+        <div class="patient-summary" style="flex: 1; text-align: center; padding: 0 30px;">
+            @if($pet->isProvisional())
+                <div class="provisional-notice">
+                    <strong>PROVISIONAL RECORD</strong><br>
+                    <small>Complete details in admin panel</small>
+                </div>
+            @endif
+            <h2 style="margin: 0; color: #0066cc;">Patient ID: {{ $pet->unique_id }}</h2>
+        </div>
+        
+        <div class="barcode">
+            @if($qr_success && $barcode_url)
+                <img src="{{ asset('storage/' . ltrim($barcode_url, '/storage/')) }}" alt="Barcode">
+            @else
+                <div style="width: 200px; height: 60px; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
+                    <span style="font-size: 10px; color: #666;">{{ $pet->unique_id }}</span>
+                </div>
+            @endif
+            <div class="code-label">{{ $pet->unique_id }}</div>
+        </div>
+    </div>
+
+    <!-- Patient Information -->
+    <div class="patient-info">
+        <div class="info-grid">
+            <div>
+                <div class="info-item">
+                    <span class="info-label">Pet Name:</span>
+                    <span class="info-value">{{ $pet->name ?? '_______________' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Species:</span>
+                    <span class="info-value">{{ $pet->species->name ?? '_______________' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Breed:</span>
+                    <span class="info-value">{{ $pet->breed->name ?? '_______________' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Gender:</span>
+                    <span class="info-value">{{ $pet->gender ?? '_______________' }}</span>
+                </div>
+            </div>
+            <div>
+                <div class="info-item">
+                    <span class="info-label">Owner Name:</span>
+                    <span class="info-value">{{ $pet->owner->name ?? '_______________' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Mobile:</span>
+                    <span class="info-value">{{ $pet->owner->primary_mobile ?? '_______________' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Address:</span>
+                    <span class="info-value">{{ $pet->owner->address ?? '_______________' }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Registration:</span>
+                    <span class="info-value">{{ $pet->unique_id }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vital Signs -->
+    <div class="vital-signs">
+        <div class="vital-item">
+            <strong>Temperature:</strong> _______________
+        </div>
+        <div class="vital-item">
+            <strong>Weight:</strong> _______________
+        </div>
+        <div class="vital-item">
+            <strong>Heart Rate:</strong> _______________
+        </div>
+        <div class="vital-item">
+            <strong>Respiratory Rate:</strong> _______________
+        </div>
+        <div class="vital-item">
+            <strong>Blood Pressure:</strong> _______________
+        </div>
+        <div class="vital-item">
+            <strong>Body Condition:</strong> _______________
         </div>
     </div>
 
     <!-- Prescription Area -->
-    <div class="min-h-[400px] border-2 border-dashed border-gray-300 p-4 mb-6">
-        <h3 class="text-lg font-semibold text-gray-700 mb-4">Clinical Findings & Prescription</h3>
-        <div class="space-y-4 text-gray-400">
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <p class="font-medium">Temperature: _______________</p>
-                    <p class="font-medium">Weight: ___________________</p>
-                    <p class="font-medium">Heart Rate: _______________</p>
-                </div>
-                <div>
-                    <p class="font-medium">Respiratory Rate: _________</p>
-                    <p class="font-medium">Blood Pressure: __________</p>
-                    <p class="font-medium">Body Condition: __________</p>
-                </div>
-            </div>
-            
-            <div class="mt-6">
-                <p class="font-medium mb-2">Clinical Findings:</p>
-                <div class="space-y-2">
-                    <p>____________________________________________________________________________</p>
-                    <p>____________________________________________________________________________</p>
-                    <p>____________________________________________________________________________</p>
-                </div>
-            </div>
-            
-            <div class="mt-6">
-                <p class="font-medium mb-2">Prescription:</p>
-                <div class="space-y-2">
-                    <p>____________________________________________________________________________</p>
-                    <p>____________________________________________________________________________</p>
-                    <p>____________________________________________________________________________</p>
-                    <p>____________________________________________________________________________</p>
-                </div>
-            </div>
+    <div class="prescription-area">
+        <div class="prescription-title">Clinical Findings & Prescription</div>
+        <div style="margin-bottom: 20px;">
+            <strong>Clinical Findings:</strong>
+            <div style="height: 80px; border-bottom: 1px solid #ddd; margin-top: 5px;"></div>
+        </div>
+        <div>
+            <strong>Prescription:</strong>
+            <div style="height: 200px; border-bottom: 1px solid #ddd; margin-top: 5px;"></div>
         </div>
     </div>
 
-    <!-- Footer -->
-    <div class="border-t-2 border-gray-800 pt-4 mt-8">
-        <div class="flex justify-between">
-            <div>
-                <p class="text-sm text-gray-600">Doctor Signature</p>
-                <div class="w-48 border-b border-gray-400 mt-8"></div>
-                <p class="text-xs text-gray-500 mt-1">Dr. ________________________</p>
-            </div>
-            <div>
-                <p class="text-sm text-gray-600">Next Visit</p>
-                <div class="w-48 border-b border-gray-400 mt-8"></div>
-                <p class="text-xs text-gray-500 mt-1">Date: ______________________</p>
-            </div>
+    <!-- Signature Section -->
+    <div class="signature-section">
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div style="font-size: 12px; font-weight: bold;">Doctor Signature</div>
+            <div style="font-size: 10px; margin-top: 5px;">Dr. _______________</div>
+        </div>
+        
+        <div class="signature-box">
+            <div class="signature-line"></div>
+            <div style="font-size: 12px; font-weight: bold;">Next Visit</div>
+            <div style="font-size: 10px; margin-top: 5px;">Date: _______________</div>
         </div>
     </div>
-</div>
 
-<div class="text-center mt-4 space-x-4 no-print">
-    <button onclick="window.print()" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition duration-200">
-        🖨️ Print Letterhead
-    </button>
-    
-    <a href="{{ route('patient.intake') }}" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition duration-200">
-        ← New Search
-    </a>
-    
-    @if(auth()->check())
-        <a href="/admin" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition duration-200">
-            Manage in Admin
-        </a>
-    @endif
-</div>
-
-<style>
-@media print {
-    .no-print { display: none !important; }
-    body { background: white !important; }
-    #letterhead { box-shadow: none !important; margin: 0 !important; }
-    .bg-yellow-100 { background: #fffbeb !important; }
-    .border-yellow-400 { border-color: #fbbf24 !important; }
-    .text-yellow-800 { color: #92400e !important; }
-}
-</style>
-@endsection
+    <!-- Print Button -->
+    <div class="no-print" style="text-align: center; margin-top: 30px;">
+        <button onclick="window.print()" style="background: #0066cc; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-size: 14px; cursor: pointer;">
+            Print Letterhead
+        </button>
+    </div>
+</body>
+</html>

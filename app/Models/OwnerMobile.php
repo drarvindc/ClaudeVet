@@ -1,5 +1,5 @@
 <?php
-// app/Models/OwnerMobile.php - Updated with strict 10-digit validation
+// app/Models/OwnerMobile.php - Simple 10-digit logic
 
 namespace App\Models;
 
@@ -46,8 +46,11 @@ class OwnerMobile extends Model
         // Remove all non-digits
         $mobile = preg_replace('/\D/', '', $mobile);
         
-        // STRICT: Only accept exactly 10 digits starting with 6,7,8,9
-        // No country code handling - reject anything not exactly 10 digits
+        // Take first 10 digits only
+        if (strlen($mobile) >= 10) {
+            return substr($mobile, 0, 10);
+        }
+        
         return $mobile;
     }
 
@@ -55,10 +58,7 @@ class OwnerMobile extends Model
     {
         $normalized = self::normalizeMobile($mobile);
         
-        // STRICT VALIDATION: Must be exactly 10 digits and start with 6,7,8,9
-        // Reject anything longer or shorter than 10 digits
-        return strlen($normalized) === 10 && 
-               ctype_digit($normalized) && 
-               in_array(substr($normalized, 0, 1), ['6', '7', '8', '9']);
+        // Must be exactly 10 digits
+        return strlen($normalized) === 10 && ctype_digit($normalized);
     }
 }

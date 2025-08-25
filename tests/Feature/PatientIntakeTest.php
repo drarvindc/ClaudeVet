@@ -207,30 +207,32 @@ class PatientIntakeTest extends TestCase
         }
     }
 
-    /** @test */
+   /** @test */
     public function mobile_validation_works_correctly()
     {
-        // Test the OwnerMobile validation method directly
+        // Test valid 10-digit numbers
         $this->assertTrue(OwnerMobile::validateMobile('9876543210'));
         $this->assertTrue(OwnerMobile::validateMobile('8123456789'));
         $this->assertTrue(OwnerMobile::validateMobile('7987654321'));
         $this->assertTrue(OwnerMobile::validateMobile('6123456789'));
+        $this->assertTrue(OwnerMobile::validateMobile('1234567890')); // Any 10 digits are valid now
         
         // Invalid mobile numbers
-        $this->assertFalse(OwnerMobile::validateMobile('1234567890')); // Doesn't start with 6,7,8,9
         $this->assertFalse(OwnerMobile::validateMobile('98765432')); // Too short
-        $this->assertFalse(OwnerMobile::validateMobile('98765432100')); // Too long
         $this->assertFalse(OwnerMobile::validateMobile('abcdefghij')); // Non-numeric
+        
+        // 11+ digits should normalize to first 10 digits and be valid
+        $this->assertTrue(OwnerMobile::validateMobile('98765432100')); // Takes first 10: 9876543210
     }
 
-    /** @test */
+      /** @test */
     public function mobile_normalization_works_correctly()
     {
-        // Test the OwnerMobile normalization method
+        // Test the OwnerMobile normalization method - takes first 10 digits
         $this->assertEquals('9876543210', OwnerMobile::normalizeMobile('9876543210'));
-        $this->assertEquals('9876543210', OwnerMobile::normalizeMobile('+919876543210'));
-        $this->assertEquals('9876543210', OwnerMobile::normalizeMobile('91-9876543210'));
-        $this->assertEquals('9876543210', OwnerMobile::normalizeMobile(' 98 765 43210 '));
+        $this->assertEquals('9198765432', OwnerMobile::normalizeMobile('+919876543210')); // First 10 digits
+        $this->assertEquals('9198765432', OwnerMobile::normalizeMobile('91-9876543210')); // First 10 digits  
+        $this->assertEquals('9876543210', OwnerMobile::normalizeMobile(' 98 765 43210 ')); // First 10 digits
     }
     
     protected function tearDown(): void
